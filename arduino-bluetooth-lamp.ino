@@ -11,8 +11,9 @@ SoftwareSerial EEBlue(10, 11); // RX | TX
 
 int BRIGHTNESS = 50;
 CRGB leds[NUM_LEDS];
+CRGBPalette16 gPal;
 
-boolean onoff;
+boolean lampOn;
 
 void setup()
 {
@@ -22,8 +23,18 @@ void setup()
   delay(3000);
   Serial.println("The bluetooth gates are open.\n Connect to HC-05 from any other bluetooth device with 1234 as pairing key!.");
 
+  // First, a gradient from black to red to yellow to white -- similar to HeatColors_p
+  //   gPal = HeatColors_p;
+  //   gPal = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::Yellow, CRGB::White);
+
+  // Second, this palette is like the heat colors, but blue/aqua instead of red/yellow
+     gPal = CRGBPalette16( CRGB::Black, CRGB::Blue, CRGB::Aqua,  CRGB::White);
+
+  // Third, here's a simpler, three-step gradient, from black to red to white
+  //   gPal = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::White);
+
   setupFastLED();
-  onoff = false;
+  lampOn = false;
 }
 
 inline void setupFastLED()
@@ -35,76 +46,80 @@ inline void setupFastLED()
   FastLED.show();
 }
 
+
 int mode = 0;
+char data[10];
 
 void loop()
 {
 
   // Feed any data from bluetooth to Terminal.
   if (EEBlue.available()) {
-    char readValue =  EEBlue.read();
-    Serial.println(readValue);
-    if (readValue == 'o') {
-      onoff = !onoff;
+    Serial.println("New command, collecting...");
+    int count = 0;
 
-      if (!onoff) {
+    while (EEBlue.available()) {
+      char character = EEBlue.read();
+
+      data[count] = character;
+      count++;
+    }
+  } else {
+    if (strlen(data) > 0) {
+      Serial.println("Collected a new command, process that first");
+      Serial.println(data);
+      if (strcmp(data, "on") == 0)
+        lampOn = true;
+
+      if (strcmp(data, "off") == 0) {
+        lampOn = false;
         fill_solid(leds, NUM_LEDS, CRGB::Black);
         FastLED.show();
       }
-    }
-  }
 
-  if (onoff) {
-  
-    Fire2012();
-    FastLED.show();
-    FastLED.delay(1000 / FPS);
-    delay(100);
+      if (strcmp(data, "+") == 0) {
+        if (BRIGHTNESS < 250) {
+          BRIGHTNESS += 10;
+        }
+        FastLED.setBrightness(BRIGHTNESS);
+        FastLED.show();
+      }
+
+      //vol- = brightness down
+      if (strcmp(data, "-") == 0) {
+        if (BRIGHTNESS > 10) {
+          BRIGHTNESS -= 10;
+        }
+        FastLED.setBrightness(BRIGHTNESS);
+        FastLED.show();
+      }
+
+      for (int i = 0; i < 10; i++)
+        data[i] = 0;
+    } else {
+      if (lampOn) {
+        random16_add_entropy( random());
+        Fire2012WithPalette();
+        FastLED.show();
+        FastLED.delay(1000 / FPS);
+        delay(100);
+      }
+    }
   }
 }
 
-
-// Fire2012 by Mark Kriegsman, July 2012
-// as part of "Five Elements" shown here: http://youtu.be/knWiGsmgycY
-////
-// This basic one-dimensional 'fire' simulation works roughly as follows:
-// There's a underlying array of 'heat' cells, that model the temperature
-// at each point along the line.  Every cycle through the simulation,
-// four steps are performed:
-//  1) All cells cool down a little bit, losing heat to the air
-//  2) The heat from each cell drifts 'up' and diffuses a little
-//  3) Sometimes randomly new 'sparks' of heat are added at the bottom
-//  4) The heat from each cell is rendered as a color into the leds array
-//     The heat-to-color mapping uses a black-body radiation approximation.
-//
-// Temperature is in arbitrary units from 0 (cold black) to 255 (white hot).
-//
-// This simulation scales it self a bit depending on NUM_LEDS; it should look
-// "OK" on anywhere from 20 to 100 LEDs without too much tweaking.
-//
-// I recommend running this simulation at anywhere from 30-100 frames per second,
-// meaning an interframe delay of about 10-35 milliseconds.
-//
-// Looks best on a high-density LED setup (60+ pixels/meter).
-//
-//
-// There are two main parameters you can play with to control the look and
-// feel of your fire: COOLING (used in step 1 above), and SPARKING (used
-// in step 3 above).
-//
 // COOLING: How much does the air cool as it rises?
 // Less cooling = taller flames.  More cooling = shorter flames.
-// Default 50, suggested range 20-100
-#define COOLING  55
+// Default 55, suggested range 20-100
+#define COOLING  80
 
 // SPARKING: What chance (out of 255) is there that a new spark will be lit?
 // Higher chance = more roaring fire.  Lower chance = more flickery fire.
 // Default 120, suggested range 50-200.
 #define SPARKING 120
-
 bool gReverseDirection = false;
 
-void Fire2012()
+void Fire2012WithPalette()
 {
   // Array of temperature readings at each simulation cell
   static byte heat[NUM_LEDS];
@@ -127,7 +142,10 @@ void Fire2012()
 
   // Step 4.  Map from heat cells to LED colors
   for ( int j = 0; j < NUM_LEDS; j++) {
-    CRGB color = HeatColor( heat[j]);
+    // Scale the heat value from 0-255 down to 0-240
+    // for best results with color palettes.
+    byte colorindex = scale8( heat[j], 240);
+    CRGB color = ColorFromPalette( gPal, colorindex);
     int pixelnumber;
     if ( gReverseDirection ) {
       pixelnumber = (NUM_LEDS - 1) - j;
