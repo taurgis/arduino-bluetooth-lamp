@@ -28,7 +28,7 @@ void setup()
   //   gPal = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::Yellow, CRGB::White);
 
   // Second, this palette is like the heat colors, but blue/aqua instead of red/yellow
-     gPal = CRGBPalette16( CRGB::Black, CRGB::Blue, CRGB::Aqua,  CRGB::White);
+  gPal = CRGBPalette16( CRGB::Black, CRGB::Blue, CRGB::Aqua,  CRGB::White);
 
   // Third, here's a simpler, three-step gradient, from black to red to white
   //   gPal = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::White);
@@ -48,6 +48,7 @@ inline void setupFastLED()
 
 
 int mode = 0;
+uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 char data[10];
 
 void loop()
@@ -94,15 +95,43 @@ void loop()
         FastLED.show();
       }
 
+      if (strcmp(data, "m0") == 0) {
+        mode = 0;
+      }
+      if (strcmp(data, "m1") == 0) {
+        mode = 1;
+      }
+
+      if (strcmp(data, "m2") == 0) {
+        mode = 2;
+      }
+
+      if (strcmp(data, "m3") == 0) {
+        mode = 3;
+      }
+
       for (int i = 0; i < 10; i++)
         data[i] = 0;
     } else {
       if (lampOn) {
-        random16_add_entropy( random());
-        Fire2012WithPalette();
+        switch (mode) {
+          case 0:
+            random16_add_entropy( random());
+            Fire2012WithPalette();
+            break;
+          case 1:
+            storm();
+            break;
+          case 2:
+            animateRain();
+            break;
+          case 3:
+            rainbowLoop();
+            break;
+        }
+
         FastLED.show();
-        FastLED.delay(1000 / FPS);
-        delay(100);
+          delay(50);
       }
     }
   }
