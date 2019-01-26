@@ -5,7 +5,7 @@ void rainbowLoop() {              //-m3-LOOP HSV RAINBOW
   static byte hue = 0;
   static int currentFrame = 0;
   currentFrame++;
-  
+
   fill_rainbow(leds, NUM_LEDS, hue++, 10);
   FastLED.show();
   delay(15);
@@ -50,77 +50,24 @@ void flicker(int thishue, int thissat) {            //-m9-FLICKER EFFECT
   }
 }
 
-// there are 8 leds strip so I'm using a byte with 
-// one bit to represent each column and then I have
-// 14 of them since each strip is 14 pixels long
-//
-// in seedDrops I am randomly starting raindrops
-// by setting the first bit true in some of the strips.
-void seedDrop()
-{
-  //print("seed drop ");println();
-  for(byte iColumn = 0;iColumn<8;iColumn++)
-  {
-    if (random(0,8) == 0) 
-    {
-      //print("1");  
-      bitSet(rain[0], iColumn);
-    }
-    else
-    {
-      //print("0");
-      bitClear(rain[0], iColumn);
-    }
-  }
-  //println();
-}
-
-// for each frame I just copy the frame above onto it
-void advanceDrops()
-{
-  //print("advance ");println();
-  // I need to copy starting at the bottom because 
-  // otherwise I end up writing over myself
-  for(byte iRow = rowCount-1;iRow > 0;iRow--)
-  {
-    rain[iRow] = rain[iRow-1];
-  }
-}
 
 void animateRain()
 {
-  //print("animate");println();
-  advanceDrops();
-  seedDrop();
-  //printRainState();
+  fadeToBlackBy( leds, NUM_LEDS, 30);
+  int pos = random16(NUM_LEDS);
+  leds[pos] = CHSV(135, 80, 200);
 
-  for (byte iRow = 0;iRow < rowCount;iRow++)  
-  {
-    for(byte iColumn = 0;iColumn < 8;iColumn++)
-    {
-      byte currentPixel;
-      // if it's an odd column we're dripping down
-      if (iColumn % 2 == 1)
-      {
-        currentPixel = iRow +  iColumn * rowCount;
-        if (bitRead(rain[iRow], iColumn))
-        {
-          leds[currentPixel] = CRGB(255,255,255);
-        }
-        else
-          leds[currentPixel] = CRGB(0,0,0);
-        //print("[");print(iRow);print(".");print(iColumn);print("->");print(iRow * 8 +  iColumn);println();
-      }
-      else // we're dripping up
-      {
-        currentPixel = iRow + iColumn * rowCount;
-        if (bitRead(rain[rowCount-1-iRow], iColumn))
-          leds[currentPixel] = CRGB(255,255,255);
-        else
-          leds[currentPixel] = CRGB(0,0,0);
-      }
-    }
-  }
   FastLED.show();
-  delay(50);
+}
+
+void starryNight() {
+  fill_gradient_RGB(leds, 0, CHSV(160, 255, 150), NUM_LEDS - 1, CHSV(180, 230, 80));
+  addGlitter(80);
+  FastLED.show();
+}
+
+void addGlitter( fract8 chanceOfGlitter) {
+  if ( random8() < chanceOfGlitter) {
+    leds[ random16(NUM_LEDS) ] += CRGB::White;
+  }
 }

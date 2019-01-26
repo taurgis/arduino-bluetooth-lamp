@@ -11,7 +11,7 @@ SoftwareSerial EEBlue(10, 11); // RX | TX
 
 int BRIGHTNESS = 50;
 CRGB leds[NUM_LEDS];
-CRGBPalette16 gPal;
+
 
 boolean lampOn;
 
@@ -28,7 +28,7 @@ void setup()
   //   gPal = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::Yellow, CRGB::White);
 
   // Second, this palette is like the heat colors, but blue/aqua instead of red/yellow
-  gPal = CRGBPalette16( CRGB::Black, CRGB::Blue, CRGB::Aqua,  CRGB::White);
+  // Pal = CRGBPalette16( CRGB::Black, CRGB::Blue, CRGB::Aqua,  CRGB::White);
 
   // Third, here's a simpler, three-step gradient, from black to red to white
   //   gPal = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::White);
@@ -110,6 +110,15 @@ void loop()
         mode = 3;
       }
 
+      if (strcmp(data, "m4") == 0) {
+        mode = 4;
+      }
+
+      if (strcmp(data, "m5") == 0) {
+        mode = 5;
+      }
+
+
       for (int i = 0; i < 10; i++)
         data[i] = 0;
     } else {
@@ -124,63 +133,37 @@ void loop()
             break;
           case 2:
             animateRain();
+            delay(1000 / 120);
             break;
           case 3:
             rainbowLoop();
             break;
+          case 4:
+            starryNight();
+            delay(1000 / 120);
+            break;
+          case 5:
+            basicGradiant();
+            delay(1000 / 120);
+            break;
         }
 
         FastLED.show();
-          delay(50);
+        delay(50);
       }
     }
   }
 }
 
-// COOLING: How much does the air cool as it rises?
-// Less cooling = taller flames.  More cooling = shorter flames.
-// Default 55, suggested range 20-100
-#define COOLING  80
+CRGB endclr;
+CRGB midclr;
+void basicGradiant() {
+  uint8_t speed = beatsin8(10, 0, 255);
+  endclr = blend(CHSV(160, 185, 255), CRGB::Pink, speed);
+  midclr = blend(CRGB::Purple, CRGB::Green, speed);
 
-// SPARKING: What chance (out of 255) is there that a new spark will be lit?
-// Higher chance = more roaring fire.  Lower chance = more flickery fire.
-// Default 120, suggested range 50-200.
-#define SPARKING 120
-bool gReverseDirection = false;
+  fill_gradient_RGB(leds, 0, endclr, NUM_LEDS / 2, midclr);
+  fill_gradient_RGB(leds, NUM_LEDS / 2 + 1, midclr, NUM_LEDS, endclr);
 
-void Fire2012WithPalette()
-{
-  // Array of temperature readings at each simulation cell
-  static byte heat[NUM_LEDS];
-
-  // Step 1.  Cool down every cell a little
-  for ( int i = 0; i < NUM_LEDS; i++) {
-    heat[i] = qsub8( heat[i],  random8(0, ((COOLING * 10) / NUM_LEDS) + 2));
-  }
-
-  // Step 2.  Heat from each cell drifts 'up' and diffuses a little
-  for ( int k = NUM_LEDS - 1; k >= 2; k--) {
-    heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2] ) / 3;
-  }
-
-  // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
-  if ( random8() < SPARKING ) {
-    int y = random8(7);
-    heat[y] = qadd8( heat[y], random8(160, 255) );
-  }
-
-  // Step 4.  Map from heat cells to LED colors
-  for ( int j = 0; j < NUM_LEDS; j++) {
-    // Scale the heat value from 0-255 down to 0-240
-    // for best results with color palettes.
-    byte colorindex = scale8( heat[j], 240);
-    CRGB color = ColorFromPalette( gPal, colorindex);
-    int pixelnumber;
-    if ( gReverseDirection ) {
-      pixelnumber = (NUM_LEDS - 1) - j;
-    } else {
-      pixelnumber = j;
-    }
-    leds[pixelnumber] = color;
-  }
+  FastLED.show();
 }
